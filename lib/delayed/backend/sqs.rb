@@ -74,12 +74,13 @@ module Delayed
 
         def destroy
           if @msg
-            puts "job destroyed! #{@msg.id}"
+            puts "job destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
             @msg.delete
           end
         end
 
         def fail!
+          puts "job failed without being destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
           destroy
           # v2: move to separate queue
         end
