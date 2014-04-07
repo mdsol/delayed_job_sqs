@@ -53,6 +53,11 @@ module Delayed
             self.handler = object.to_yaml
           end
         end
+        
+        def reschedule_at
+          puts 'Rescheduled at reset'
+          self.class.db_time_now + (attempts ** 4) + 5
+        end
 
         def save
           puts "[SAVE] #{@attributes.inspect}"
