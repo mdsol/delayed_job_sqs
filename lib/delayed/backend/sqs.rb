@@ -64,7 +64,8 @@ module Delayed
 
           @msg.delete if @msg
 
-          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
+          maxed_delay = [900, @delay + 5 + attempts ** 4].min
+          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => maxed_delay )
           true
         end
 
