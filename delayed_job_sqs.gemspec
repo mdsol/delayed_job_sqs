@@ -7,8 +7,8 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
   s.name          = "delayed_job_sqs"
   s.version       = Delayed::Backend::Sqs.version
-  s.authors       = ["Eric Hankinson"]
-  s.email         = ["eric.hankinson@gmail.com"]
+  s.authors       = ["Eric Hankinson", "Matthew Szenher"]
+  s.email         = ["eric.hankinson@gmail.com", "mszenher@mdsol.com"]
   s.description   = "Amazon SQS backend for delayed_job"
   s.summary       = "Amazon SQS backend for delayed_job"
   s.homepage      = "https://github.com/kumichou/delayed_job_sqs"
