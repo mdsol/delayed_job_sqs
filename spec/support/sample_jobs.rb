@@ -1,3 +1,4 @@
+=begin
 require 'fileutils'
 
 # A simple class with a method intended to be run in the background.
@@ -12,7 +13,7 @@ class SimpleJob
   # Also has the side-effect of cleaning up artifacts of running the job.
   def completed?
     completed = false
-    2.times do 
+    4.times do 
       completed = File.exists?(TEST_FILE_PATH)
       if completed
         break
@@ -32,3 +33,9 @@ class SimpleJob
   end
   
 end
+
+class ErrorJob
+  cattr_accessor :runs; self.runs = 0
+  def perform; raise 'did not work'; end
+end
+=end
