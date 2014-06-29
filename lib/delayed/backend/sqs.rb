@@ -52,7 +52,7 @@ module Delayed
         def payload_object
           @payload_object ||= YAML.load(self.handler)
         rescue TypeError, LoadError, NameError, ArgumentError => e
-          raise DeserializationError,
+          raise Delayed::DeserializationError,
             "Job failed to load: #{e.message}. Handler: #{handler.inspect}"
         end
 
@@ -64,6 +64,10 @@ module Delayed
             @payload_object = object
             self.handler = object.to_yaml
           end
+        rescue TypeError, LoadError, NameError, ArgumentError => e
+          # If we have trouble serializing the object, simply assume it is serialized and store it as is
+          # in hopes that it can be deserialized when the time comes.  This is what the dj lint calls for.
+          self.handler = object
         end
 
         def save
