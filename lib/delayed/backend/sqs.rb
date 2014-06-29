@@ -112,10 +112,12 @@ module Delayed
           true
         end
 
-        # TODO:  implement reload
+        # This method is supposed to reload the payload object.
+        # NOTE:  I can't find evidence that this is actually called in anything but tests by delayed job.
+        # We are copying the implementation given in delayed_job/spec/delayed/backend/test.rb 
         def reload(*args)
-          # reset
-          super # TODO:  no superclass method reload
+          reset
+          self
         end
 
         # Count the total number of jobs in all queues.
