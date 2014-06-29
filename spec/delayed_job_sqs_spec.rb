@@ -31,22 +31,14 @@ describe Delayed::Backend::Sqs::Job, :sqs do
   
   let(:simple_job) { DelayedJobSqs::SimpleJob.new }
   
-  it 'delays a single simple job successfully' do
-    before_runs_count = DelayedJobSqs::SimpleJob.runs
+  [1, 2].each do |num_jobs|
+    it "delays #{num_jobs} simple job(s) successfully" do
+      before_runs_count = DelayedJobSqs::SimpleJob.runs
     
-    simple_job.delay.perform
-    Delayed::Worker.new.work_off
+      num_jobs.times{ simple_job.delay.perform }
+      Delayed::Worker.new.work_off
     
-    DelayedJobSqs::SimpleJob.runs.should == (before_runs_count + 1)
-  end
-  
-  it 'delays multiple simple jobs successfully' do
-    before_runs_count = DelayedJobSqs::SimpleJob.runs
-    
-    n = 2
-    n.times{ simple_job.delay.perform }
-    Delayed::Worker.new.work_off
-    
-    DelayedJobSqs::SimpleJob.runs.should == (before_runs_count + n)
+      DelayedJobSqs::SimpleJob.runs.should == (before_runs_count + num_jobs)
+    end
   end
 end
