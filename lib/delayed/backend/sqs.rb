@@ -28,7 +28,16 @@ module Delayed
 
           data.symbolize_keys!
           payload_obj = data.delete(:payload_object) || data.delete(:handler)
-
+          
+          # Ensure that run_at is present and is a Time object.
+          data[:run_at] = if data[:run_at].nil?
+            Time.now.utc
+          elsif data[:run_at].is_a?(String)
+            Time.parse(data[:run_at])
+          else
+            data[:run_at]
+          end
+          
           @queue_name = data[:queue]      || Delayed::Worker.default_queue_name
           @delay      = data[:delay]      || Delayed::Worker.delay
           @timeout    = data[:timeout]    || Delayed::Worker.timeout
