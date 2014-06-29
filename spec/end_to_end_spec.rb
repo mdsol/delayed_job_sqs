@@ -4,7 +4,7 @@ describe 'End-to-End Tests', :sqs do
   describe 'SimpleJob' do
     let(:simple_job) { DelayedJobSqs::SimpleJob.new }
     
-    it 'runs in the background' do
+    it 'delays a single simple job successfully' do
       before_runs_count = DelayedJobSqs::SimpleJob.runs
       
       simple_job.delay.perform
