@@ -90,10 +90,12 @@ module Delayed
           end
         end
 
+        # TODO:  Put failed jobs in s3 (if they are set to be retained).
         def fail!
-          puts "job failed without being destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
+          if @msg
+            puts "job failed without being destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
+          end
           destroy
-          # v2: move to separate queue
         end
 
         def update_attributes(attributes)
