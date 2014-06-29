@@ -35,10 +35,6 @@ AWS.config(
 
 require File.join(LIB_DIR, 'delayed_job_sqs')
 
-Delayed::Worker.logger = Logger.new('/tmp/dj.log')
-
-# TODO:  Shouldn't DJ_SQS just set the queue name(s)?
-Delayed::Worker.queues = [QUEUE_NAME]
 
 RSpec.configure do |config|  
   config.mock_with :rspec
@@ -53,6 +49,12 @@ RSpec.configure do |config|
   config.before(:each, :sqs) do
     $fake_sqs.reset
     $sqs.queues.create(QUEUE_NAME)
+  end
+  
+  config.before(:each) do
+    Delayed::Worker.logger = Logger.new('/tmp/dj.log')
+    # TODO:  Shouldn't DJ_SQS just set the queue name(s)?
+    Delayed::Worker.queues = [QUEUE_NAME]
   end
   
   config.after(:suite) { $fake_sqs.stop }

@@ -118,8 +118,14 @@ module Delayed
           super # TODO:  no superclass method reload
         end
 
-        # TODO:  implement count (of queued jobs) if possible
+        # Count the total number of jobs in all queues.
         def self.count
+          num_jobs = 0
+          Delayed::Worker.queues.each_with_index do |queue, index|
+            queue = sqs.queues.named(queue_name(index))
+            num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
+          end
+          num_jobs
         end
                 
         # Must give each job an id.
