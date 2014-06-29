@@ -63,7 +63,6 @@ module Delayed
           payload = JSON.dump(@attributes)
 
           @msg.delete if @msg
-
           sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
           true
         end
@@ -106,6 +105,11 @@ module Delayed
           super
         end
 
+        # Must give each job an id.
+        def id
+          rand(10e6)
+        end
+                
         private
 
         def queue_name
