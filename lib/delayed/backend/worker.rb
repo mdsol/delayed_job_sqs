@@ -26,7 +26,7 @@ module Delayed
   end
 
   module Backend
-    module Sqs
+    module Sqs      
       if Object.const_defined?(:Rails) and Rails.const_defined?(:Railtie)
         class Railtie < Rails::Railtie
 
@@ -39,6 +39,10 @@ module Delayed
             Delayed::Worker.configure {}
           end
         end
+      elsif defined?(AWS.config) && AWS.config.access_key_id && AWS.config.secret_access_key
+        # Use config in AWS.config if it is defined well enough for our sqs-y purposes.
+        Delayed::Worker.sqs = AWS::SQS.new
+        Delayed::Worker.configure {}
       else
         path = Pathname.new(Delayed::Worker.config.aws_config)
 
@@ -54,7 +58,7 @@ module Delayed
 
         Delayed::Worker.sqs = AWS::SQS.new
         Delayed::Worker.configure {}
-      end
+      end      
     end
   end
 end

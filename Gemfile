@@ -1,10 +1,11 @@
 source 'http://rubygems.org'
 
+platforms :ruby do
+  gem 'sqlite3'
+end
+
+group :test do
+  gem 'activerecord', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 4.2'])
+end
+
 gemspec
-
-#gem 'aws-sdk', '>= 1.12.0'
-#gem 'delayed_job',  '>= 3.0.0'
-
-#group :development do
-#  gem 'rspec', '>= 2.0'
-#end

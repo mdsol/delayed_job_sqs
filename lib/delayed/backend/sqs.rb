@@ -10,7 +10,7 @@ module Delayed
         field :priority,    :type => Integer, :default => 0
         field :attempts,    :type => Integer, :default => 0
         field :handler,     :type => String
-        field :run_at,      :type => Time
+        field :run_at,      :type => Time # TODO:  implement run_at
         field :locked_at,   :type => Time
         field :locked_by,   :type => String
         field :failed_at,   :type => Time
@@ -37,6 +37,18 @@ module Delayed
           self.payload_object = payload_obj
         end
 
+        def self.create(attrs = {})
+          new(attrs).tap do |o|
+            o.save
+          end
+        end
+
+        def self.create!(attrs = {})
+          new(attrs).tap do |o|
+            o.save!
+          end
+        end
+        
         def payload_object
           @payload_object ||= YAML.load(self.handler)
         rescue TypeError, LoadError, NameError, ArgumentError => e
@@ -63,7 +75,6 @@ module Delayed
           payload = JSON.dump(@attributes)
 
           @msg.delete if @msg
-
           sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
           true
         end
@@ -101,11 +112,21 @@ module Delayed
           true
         end
 
+        # TODO:  implement reload
         def reload(*args)
           # reset
-          super
+          super # TODO:  no superclass method reload
         end
 
+        # TODO:  implement count (of queued jobs) if possible
+        def self.count
+        end
+                
+        # Must give each job an id.
+        def id
+          rand(10e6)
+        end
+                
         private
 
         def queue_name
