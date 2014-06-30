@@ -39,7 +39,7 @@ module Delayed
             Delayed::Worker.configure {}
           end
         end
-      elsif Object.const_defined?(:AWS) && AWS.respond_to?(:config) && !(AWS.config.access_key_id.nil? || AWS.config.secret_access_key.nil?)
+      elsif defined?(AWS.config) && AWS.config.access_key_id && AWS.config.secret_access_key
         # Use config in AWS.config if it is defined well enough for our sqs-y purposes.
         Delayed::Worker.sqs = AWS::SQS.new
         Delayed::Worker.configure {}
