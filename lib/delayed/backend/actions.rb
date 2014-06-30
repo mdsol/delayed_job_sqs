@@ -30,13 +30,14 @@ module Delayed
         def find_available(worker_name, limit = 5, max_run_time = Worker.max_run_time)
           Delayed::Worker.queues.each_with_index do |queue, index|
             message = sqs.queues.named(queue_name(index)).receive_message
-            job = Delayed::Backend::Sqs::Job.new(message)
-            if message && is_job_suitable?(job)
+            
+            if message
+              job = Delayed::Backend::Sqs::Job.new(message)
               # Note:  if the message isn't suitable, we won't delete it.  We'll just let its visibility timeout
               # expire so that it can be looked at again in the future.  After all, it may be set to run_at in the future.
               # TODO:  remove failed jobs and put them in s3.
               # TODO:  should maybe just make unsuitable message visible right away again here.
-              return [job]
+              return [job] if is_job_suitable?(job)
             end
           end
           []
