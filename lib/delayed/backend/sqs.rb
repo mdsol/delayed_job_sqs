@@ -87,7 +87,7 @@ module Delayed
           end
           payload = JSON.dump(@attributes)
 
-          @msg.delete if @msg
+          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
           sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
           true
         end
@@ -96,24 +96,31 @@ module Delayed
           save
         end
 
+        # Destroy the job; that is, delete it from the SQS queue and don't save it anywhere.
         def destroy
           if @msg
-            puts "job destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
-            @msg.delete
+            message_id = @msg.id
+            @msg.delete # TODO:  need more fault tolerance around this!
+            puts "job destroyed! #{message_id} \nWith attributes: #{@attributes.inspect}"
+          else
+            puts "Could not destroy job b/c no SQS message provided: #{@attributes.inspect}"
           end
         end
 
-        # TODO:  Put failed jobs in s3 (if they are set to be retained).
+        # Mark the job as failed (i.e. set failed_at to the current time).
+        # TODO:  Put failed jobs in s3 or onto a failed job queue (if they are set to be retained).
+        # TODO:  Need more fault tolerance in this method.
         def fail!
-          if @msg
-            puts "job failed without being destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
+          if Delayed::Worker.destroy_failed_jobs
+            destroy
+          else
+            update_attributes(failed_at: Time.now.utc)
           end
-          destroy
         end
 
         def update_attributes(attributes)
           attributes.symbolize_keys!
-          @attributes.merge attributes
+          @attributes.merge! attributes
           save
         end
 
