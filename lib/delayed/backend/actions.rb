@@ -47,7 +47,7 @@ module Delayed
         def is_job_suitable?(job)
           job.failed_at.nil? && (job.run_at.nil? || job.run_at <= db_time_now)
         rescue TypeError, JSON::ParserError => e
-          puts "Cannot parse job description #{job_message} to determine if it is suitable because #{e.message}."
+          puts "Cannot parse job description #{job_message} to determine if it is suitable because #{e.message} (#{e.class})."
           false # we should never run a job which can't be parsed!
         end
         
