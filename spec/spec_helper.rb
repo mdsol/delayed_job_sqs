@@ -23,7 +23,7 @@ require 'aws-sdk'
 
 Dir["#{SPEC_DIR}/support/*.rb"].each { |f| require f }
 
-QUEUE_NAME = 'default' # A queue name to be used by default by both delayed_jobs and delayed_jobs_sqs.
+DEFAULT_QUEUE_NAME = 'default' # A queue name to be used by default by both delayed_jobs and delayed_jobs_sqs.
 
 # Define AWS config. to be used in tests.  This is for the benefit of telling delayed_job_sqs where the sqs endpoint is
 # and what credentials to use to talk to it.  Here, we use localhost b/c we are using fake_sqs as our SQS endpoint.
@@ -33,16 +33,13 @@ AWS.config(
   sqs_port:           4568,
   access_key_id:      'fake',
   secret_access_key:  'fake',
-  sqs_queue_name:     QUEUE_NAME,
+  sqs_queue_name:     DEFAULT_QUEUE_NAME,
 )
 
 require File.join(LIB_DIR, 'delayed_job_sqs')
 
-# Tell DJ where to log.  These logs are useful for debugging purposes.
-Delayed::Worker.logger = Logger.new('/tmp/dj.log')
-
-# TODO:  Shouldn't DJ_SQS just set the queue name(s)?
-Delayed::Worker.queues = [QUEUE_NAME]
+# Queue names for queues used by dj_sqs specific tests as well as the dj backend shared examples ('a delayed_job backend').
+QUEUES_TO_CREATE = [DEFAULT_QUEUE_NAME, 'tracking', 'small', 'medium', 'large', 'one', 'two']
 
 RSpec.configure do |config|  
   config.mock_with :rspec
@@ -58,9 +55,15 @@ RSpec.configure do |config|
   # Each example tagged with :sqs, we reset fake_sqs and recreate the SQS queue in which we store jobs.
   config.before(:each, :sqs) do
     $fake_sqs.reset
-    $sqs.queues.create(QUEUE_NAME)
+    QUEUES_TO_CREATE.each{ |q_name| $sqs.queues.create(q_name) }
   end
   
+  config.before(:each) do
+    Delayed::Worker.logger = Logger.new('/tmp/dj.log')
+    # TODO:  Shouldn't DJ_SQS just set the queue name(s)?
+    Delayed::Worker.queues = QUEUES_TO_CREATE
+  end
+        
   # After running the test suite, stop fake_sqs.
   config.after(:suite) { $fake_sqs.stop }
 end

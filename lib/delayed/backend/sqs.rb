@@ -28,7 +28,16 @@ module Delayed
 
           data.symbolize_keys!
           payload_obj = data.delete(:payload_object) || data.delete(:handler)
-
+          
+          # Ensure that run_at is present and is a Time object.
+          data[:run_at] = if data[:run_at].nil?
+            Time.now.utc
+          elsif data[:run_at].is_a?(String)
+            Time.parse(data[:run_at])
+          else
+            data[:run_at]
+          end
+          
           @queue_name = data[:queue]      || Delayed::Worker.default_queue_name
           @delay      = data[:delay]      || Delayed::Worker.delay
           @timeout    = data[:timeout]    || Delayed::Worker.timeout
@@ -52,7 +61,7 @@ module Delayed
         def payload_object
           @payload_object ||= YAML.load(self.handler)
         rescue TypeError, LoadError, NameError, ArgumentError => e
-          raise DeserializationError,
+          raise Delayed::DeserializationError,
             "Job failed to load: #{e.message}. Handler: #{handler.inspect}"
         end
 
@@ -64,6 +73,11 @@ module Delayed
             @payload_object = object
             self.handler = object.to_yaml
           end
+        rescue TypeError, LoadError, NameError, ArgumentError => e
+          puts "Failed to serialize #{object} because #{e.message} (#{e.class})."
+          # If we have trouble serializing the object, simply assume it is already serialized and store it as is
+          # in hopes that it can be deserialized when the time comes.  This is what the dj lint calls for.
+          self.handler = object
         end
 
         def save
@@ -74,7 +88,7 @@ module Delayed
           end
           payload = JSON.dump(@attributes)
 
-          @msg.delete if @msg
+          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
           sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
           true
         end
@@ -83,22 +97,31 @@ module Delayed
           save
         end
 
+        # Destroy the job; that is, delete it from the SQS queue and don't save it anywhere.
         def destroy
           if @msg
-            puts "job destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
-            @msg.delete
+            message_id = @msg.id
+            @msg.delete # TODO:  need more fault tolerance around this!
+            puts "job destroyed! #{message_id} \nWith attributes: #{@attributes.inspect}"
+          else
+            puts "Could not destroy job b/c no SQS message provided: #{@attributes.inspect}"
           end
         end
 
+        # Mark the job as failed (i.e. set failed_at to the current time).
+        # TODO:  Put failed jobs in s3 or onto a failed job queue (if they are set to be retained).
+        # TODO:  Need more fault tolerance in this method.
         def fail!
-          puts "job failed without being destroyed! #{@msg.id} \nWith attributes: #{@attributes.inspect}"
-          destroy
-          # v2: move to separate queue
+          if Delayed::Worker.destroy_failed_jobs
+            destroy
+          else
+            update_attributes(failed_at: Time.now.utc)
+          end
         end
 
         def update_attributes(attributes)
           attributes.symbolize_keys!
-          @attributes.merge attributes
+          @attributes.merge! attributes
           save
         end
 
@@ -112,14 +135,22 @@ module Delayed
           true
         end
 
-        # TODO:  implement reload
+        # This method is supposed to reload the payload object.
+        # NOTE:  I can't find evidence that this is actually called in anything but tests by delayed job.
+        # We are copying the implementation given in delayed_job/spec/delayed/backend/test.rb 
         def reload(*args)
-          # reset
-          super # TODO:  no superclass method reload
+          reset
+          self
         end
 
-        # TODO:  implement count (of queued jobs) if possible
+        # Count the total number of jobs in all queues.
         def self.count
+          num_jobs = 0
+          Delayed::Worker.queues.each_with_index do |queue, index|
+            queue = sqs.queues.named(queue_name(index))
+            num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
+          end
+          num_jobs
         end
                 
         # Must give each job an id.
