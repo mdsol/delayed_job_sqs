@@ -7,7 +7,7 @@ end
 group :test do
   gem 'activerecord', (ENV['RAILS_VERSION'] || ['>= 3.0', '< 4.2'])
   
-  gem 'fake_sqs', :git => 'git@github.com:mdsol/fake_sqs.git', :branch => 'fix/add_failure_simulate' # Revert to develop after merge
+  gem 'fake_sqs', :git => 'git@github.com:mdsol/fake_sqs.git'
 end
 
 gemspec
