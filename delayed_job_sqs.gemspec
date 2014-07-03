@@ -23,6 +23,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency('rspec', '>= 3')
   s.add_development_dependency('debugger', '1.6.0')
   s.add_development_dependency('simplecov', '0.7.1')
-  s.add_development_dependency('fake_sqs', '0.1.0')
 end
 

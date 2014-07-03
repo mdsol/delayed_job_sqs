@@ -1,6 +1,7 @@
 require 'spec_helper'
 require 'delayed/backend/shared_spec'
 require 'active_record'
+require 'fake_sqs'
 
 # This story class is a simple class required by the shared specs.  It is in fact copied from DJ repo.
 # The shared specs expect the Story class to have a lot of ActiveRecord-like qualities so I'm just 
@@ -41,4 +42,25 @@ describe Delayed::Backend::Sqs::Job, :sqs do
       DelayedJobSqs::SimpleJob.runs.should == (before_runs_count + num_jobs)
     end
   end
+  
+  describe 'enqueue' do
+    
+    after do
+      $fake_sqs.start
+      $fake_sqs.clear_failure
+    end
+    
+    it 'raises if AWS SQS returns non ok status' do
+      $fake_sqs.api_fail('send_message')
+      expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(FakeSQS::InvalidAction)
+    end
+    
+    it 'raises if AWS SQS fails to respond' do
+      $fake_sqs.stop
+      expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(Errno::ECONNREFUSED)
+    end
+    
+
+  end
+  
 end
