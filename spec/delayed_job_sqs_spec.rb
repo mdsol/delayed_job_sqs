@@ -45,17 +45,22 @@ describe Delayed::Backend::Sqs::Job, :sqs do
   
   describe 'enqueue' do
     
-    it 'raises if AWS SQS fails to respond' do
-      $fake_sqs.stop
-      expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(Errno::ECONNREFUSED)
+    after do
       $fake_sqs.start
+      $fake_sqs.clear_failure
     end
     
     it 'raises if AWS SQS returns non ok status' do
       $fake_sqs.api_fail('send_message')
       expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(FakeSQS::InvalidAction)
-      $fake_sqs.clear_failure
     end
+    
+    it 'raises if AWS SQS fails to respond' do
+      $fake_sqs.stop
+      expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(Errno::ECONNREFUSED)
+    end
+    
+
   end
   
 end
