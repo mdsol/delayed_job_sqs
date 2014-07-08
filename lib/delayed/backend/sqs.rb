@@ -87,8 +87,10 @@ module Delayed
           end
           payload = JSON.dump(@attributes)
 
-          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
+          # Resend the message before deleting from queue
           sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
+          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
+          
           true
         end
 

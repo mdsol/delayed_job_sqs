@@ -32,6 +32,11 @@ describe Delayed::Backend::Sqs::Job, :sqs do
   
   let(:simple_job) { DelayedJobSqs::SimpleJob.new }
   
+  let(:sqs_message) { AWS::SQS::ReceivedMessage.new(AWS::SQS::Queue.new("http://0.0.0.0:#{AWS.config.sqs_port}/#{DEFAULT_QUEUE_NAME}"),
+   1, "", opts = {body: {job: "New job"}.to_json}) }
+  
+  let(:sqs_job) { Delayed::Backend::Sqs::Job.new(sqs_message) }
+  
   [1, 2].each do |num_jobs|
     it "delays #{num_jobs} simple job(s) successfully" do
       before_runs_count = DelayedJobSqs::SimpleJob.runs
@@ -70,11 +75,6 @@ describe Delayed::Backend::Sqs::Job, :sqs do
         sqs_job.fail!
       end
       
-      let(:sqs_message) { AWS::SQS::ReceivedMessage.new(AWS::SQS::Queue.new('http://0.0.0.0:4568/default'), 1, "", 
-        opts = {body: {job: "New job"}.to_json}) }
-      
-      let(:sqs_job) { Delayed::Backend::Sqs::Job.new(sqs_message) }
-      
       it 'destroys the job' do
         sqs_message.should_receive(:delete)
       end
@@ -92,6 +92,20 @@ describe Delayed::Backend::Sqs::Job, :sqs do
       sqs_job_no_msg.fail!
     end
 
+  end
+  
+  describe 'retry' do
+    
+    after do
+      $fake_sqs.start
+      $fake_sqs.clear_failure
+    end
+    
+    it 'does not delete the job if failed to resend it' do
+      $fake_sqs.api_fail('send_message')
+      sqs_message.should_not_receive(:delete)
+      expect { sqs_job.save }.to raise_error(AWS::SQS::Errors::InvalidAction)
+    end
   end
   
 end
