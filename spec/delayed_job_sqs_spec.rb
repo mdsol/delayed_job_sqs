@@ -10,7 +10,7 @@ require 'fake_sqs'
 ActiveRecord::Base.establish_connection :adapter => 'sqlite3', :database => ':memory:'
 ActiveRecord::Base.logger = Delayed::Worker.logger
 ActiveRecord::Migration.verbose = false
-
+  
 ActiveRecord::Schema.define do
   create_table :stories, :primary_key => :story_id, :force => true do |table|
     table.string :text
@@ -59,7 +59,38 @@ describe Delayed::Backend::Sqs::Job, :sqs do
       $fake_sqs.stop
       expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(Errno::ECONNREFUSED)
     end
+
+  end
+  
+  describe 'fail' do
     
+    context 'with sqs message' do
+      
+      after do
+        sqs_job.fail!
+      end
+      
+      let(:sqs_message) { AWS::SQS::ReceivedMessage.new(AWS::SQS::Queue.new('http://0.0.0.0:4568/default'), 1, "", 
+        opts = {body: {job: "New job"}.to_json}) }
+      
+      let(:sqs_job) { Delayed::Backend::Sqs::Job.new(sqs_message) }
+      
+      it 'destroys the job' do
+        sqs_message.should_receive(:delete)
+      end
+    
+      it 'logs the failure' do
+        sqs_job.should_receive(:puts).with(/Job with attributes/)
+        sqs_job.should_receive(:puts).with(/Job destroyed!/)
+      end
+    end
+    
+    it 'logs the failure to destroy the job without sqs message' do
+      sqs_job_no_msg = Delayed::Backend::Sqs::Job.new
+      sqs_job_no_msg.should_receive(:puts).with(/Job with attributes/)
+      sqs_job_no_msg.should_receive(:puts).with(/Could not destroy job/)
+      sqs_job_no_msg.fail!
+    end
 
   end
   

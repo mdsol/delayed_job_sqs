@@ -1,4 +1,3 @@
-
 module Delayed
   module Backend
     module Sqs
@@ -102,7 +101,7 @@ module Delayed
           if @msg
             message_id = @msg.id
             @msg.delete # TODO:  need more fault tolerance around this!
-            puts "job destroyed! #{message_id} \nWith attributes: #{@attributes.inspect}"
+            puts "Job destroyed! #{message_id} \nWith attributes: #{@attributes.inspect}"
           else
             puts "Could not destroy job b/c no SQS message provided: #{@attributes.inspect}"
           end
@@ -112,6 +111,7 @@ module Delayed
         # TODO:  Put failed jobs in s3 or onto a failed job queue (if they are set to be retained).
         # TODO:  Need more fault tolerance in this method.
         def fail!
+          puts "Job with attributes #{@attributes.inspect} failed!"
           if Delayed::Worker.destroy_failed_jobs
             destroy
           else
