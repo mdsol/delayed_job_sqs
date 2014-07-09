@@ -48,13 +48,13 @@ describe Delayed::Backend::Sqs::Job, :sqs do
     end
   end
   
+  after do
+    $fake_sqs.start
+    $fake_sqs.clear_failure
+  end
+  
   describe 'enqueue' do
-    
-    after do
-      $fake_sqs.start
-      $fake_sqs.clear_failure
-    end
-    
+
     it 'raises if AWS SQS returns non ok status' do
       $fake_sqs.api_fail('send_message')
       expect {described_class.enqueue(payload_object: SimpleJob.new)}.to raise_error(FakeSQS::InvalidAction)
@@ -95,11 +95,6 @@ describe Delayed::Backend::Sqs::Job, :sqs do
   end
   
   describe 'retry' do
-    
-    after do
-      $fake_sqs.start
-      $fake_sqs.clear_failure
-    end
     
     it 'does not delete the job if failed to resend it' do
       $fake_sqs.api_fail('send_message')
