@@ -16,6 +16,8 @@ module Delayed
         field :last_error,  :type => String
         field :queue,       :type => String
 
+        # Create a new job, given data.  The data could be an SQS received message, in which case
+        # the job was placed on the SQS queue earlier and we are recreating locally here (so e.g. it can be run).
         def initialize(data = {})
           puts "[init] Delayed::Backend::Sqs"
           @msg = nil
@@ -45,12 +47,14 @@ module Delayed
           self.payload_object = payload_obj
         end
 
+        # Instantiate and persist a new job.
         def self.create(attrs = {})
           new(attrs).tap do |o|
             o.save
           end
         end
 
+        # Instantiate and persist a new job.  Raises exception if instantiation or creation failed.
         def self.create!(attrs = {})
           new(attrs).tap do |o|
             o.save!
@@ -79,6 +83,7 @@ module Delayed
           self.handler = object
         end
 
+        # Persist the job (i.e. self) on an SQS queue.
         def save
           puts "[SAVE] #{@attributes.inspect}"
 
@@ -94,11 +99,13 @@ module Delayed
           true
         end
 
+        # Persist the job (i.e. self) on an SQS queue.
+        # TODO:  Raise if we cannot save.
         def save!
           save
         end
 
-        # Destroy the job; that is, delete it from the SQS queue and don't save it anywhere.
+        # Destroy the job; that is, remove it from the SQS queue and don't save it anywhere.
         def destroy
           if @msg
             message_id = @msg.id
