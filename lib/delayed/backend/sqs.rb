@@ -117,7 +117,8 @@ module Delayed
         end
 
         # Mark the job as failed (i.e. set failed_at to the current time).
-        # TODO:  Put failed jobs in s3 or onto a failed job queue (if they are set to be retained).
+        # TODO:  Put failed jobs in s3 or onto a failed job queue (if they are set to be retained).  If we don't do this then
+        # eventually the jobs will clog up the queue.
         # TODO:  Need more fault tolerance in this method.
         def fail!
           puts "Job with attributes #{@attributes.inspect} failed!"
