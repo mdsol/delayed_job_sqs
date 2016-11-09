@@ -23,7 +23,7 @@ module Delayed
 
           if data.is_a?(AWS::SQS::ReceivedMessage)
             @msg = data
-            data = JSON.load(data.body)
+            data = ::DelayedJobSqs::Document.sqs_safe_json_load(data.body)
           end
 
           data.symbolize_keys!
@@ -60,7 +60,7 @@ module Delayed
           if @attributes[:handler].blank?
             raise "Handler missing!"
           end
-          payload = JSON.dump(@attributes)
+          payload = ::DelayedJobSqs::Document.sqs_safe_json_dump(@attributes)
 
           @msg.delete if @msg
 
