@@ -19,8 +19,8 @@ module DelayedJobSqs
 
     def self.sqs_safe_json_load(json)
       obj = JSON.load(json)
-      if obj.is_a?(Hash) && obj.key?('dj_compressed_document')
-        JSON.load(decompress(obj['dj_compressed_document']))
+      if obj.is_a?(Hash) && (compressed_data = obj['dj_compressed_document'] || obj[:dj_compressed_document])
+        JSON.load(decompress(compressed_data))
       else
         obj
       end
