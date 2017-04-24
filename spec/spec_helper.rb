@@ -6,7 +6,6 @@ $LOAD_PATH.uniq!
 
 require 'bundler'
 require 'simplecov'
-require 'debugger'
 
 SimpleCov.start do
   add_group 'lib', 'lib'
@@ -19,7 +18,7 @@ require 'delayed_job'
 Bundler.setup
 
 require 'fake_sqs/test_integration'
-require 'aws-sdk'
+require 'aws'
 
 Dir["#{SPEC_DIR}/support/*.rb"].each { |f| require f }
 
@@ -47,7 +46,7 @@ RSpec.configure do |config|
   
   # Before running the test suite, initialize and start fake_sqs.
   config.before(:suite) do 
-    $fake_sqs = FakeSQS::TestIntegration.new(database: ':memory:')
+    $fake_sqs = FakeSQS::TestIntegration.new(database: ':memory:', sqs_endpoint: 'localhost', sqs_port: 4568)
     $fake_sqs.start
     $sqs = AWS::SQS.new
   end

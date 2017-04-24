@@ -1,5 +1,5 @@
 # encoding: utf-8
-require 'aws-sdk'
+require 'aws'
 require 'delayed_job'
 require 'active_support'
 
