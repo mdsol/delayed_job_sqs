@@ -38,7 +38,7 @@ AWS.config(
 require File.join(LIB_DIR, 'delayed_job_sqs')
 
 # Queue names for queues used by dj_sqs specific tests as well as the dj backend shared examples ('a delayed_job backend').
-QUEUES_TO_CREATE = [DEFAULT_QUEUE_NAME, 'tracking', 'small', 'medium', 'large', 'one', 'two']
+QUEUES_TO_CREATE = [DEFAULT_QUEUE_NAME, 'default_tracking', 'job_tracking', 'tracking', 'small', 'medium', 'large', 'one', 'two']
 
 RSpec.configure do |config|  
   config.mock_with :rspec
