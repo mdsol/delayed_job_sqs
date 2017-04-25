@@ -24,7 +24,7 @@ module Delayed
 
           if data.is_a?(AWS::SQS::ReceivedMessage)
             @msg = data
-            data = JSON.load(data.body)
+            data = ::DelayedJobSqs::Document.sqs_safe_json_load(data.body)
           end
 
           data.symbolize_keys!
@@ -90,12 +90,12 @@ module Delayed
           if @attributes[:handler].blank?
             raise "Handler missing!"
           end
-          payload = JSON.dump(@attributes)
+          payload = ::DelayedJobSqs::Document.sqs_safe_json_dump(@attributes)
 
-          # Resend the message before deleting from queue to ensure if resend fails, message stays and job can be retried when visibility timeout is exceeded
-          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
-          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
-          
+          @msg.delete if @msg
+
+          maxed_delay = [900, @delay + 5 + attempts ** 4].min
+          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => maxed_delay )
           true
         end
 
