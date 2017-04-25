@@ -12,6 +12,7 @@ SimpleCov.start do
   add_filter 'spec'
 end
 
+require 'byebug'
 require 'rspec'
 require 'delayed_job'
 
