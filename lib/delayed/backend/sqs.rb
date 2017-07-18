@@ -38,7 +38,7 @@ module Delayed
         end
 
         def self.buffer
-          @buffer ||= [[]]
+          @buffer ||= {}
         end
 
         def buffer
@@ -107,17 +107,24 @@ module Delayed
         end
 
         def send_later(message)
-          current_buffer_size = buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
+          buffer[@queue_name] = [[]] unless buffer[@queue_name]
+          current_buffer = buffer[@queue_name]
+
+          current_buffer_size = current_buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
           if current_buffer_size + message[:message_body].bytesize >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
-             buffer.last.size >= 10
-            buffer << [message]
+             current_buffer.last.size >= 10
+            current_buffer << [message]
           else
-            buffer.last << message
+            current_buffer.last << message
           end
         end
 
         def self.persist_buffer!
-          buffer.each { |message_batch| sqs.queues.named(Delayed::Worker.default_queue_name).batch_send(message_batch) if message_batch.size > 0 }
+          buffer.each do |queue_name, message_batches|
+            message_batches.each do |message_batch|
+              sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
+            end
+          end
         end
 
         def destroy
