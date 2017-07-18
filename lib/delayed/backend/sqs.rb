@@ -16,13 +16,41 @@ module Delayed
         field :last_error,  :type => String
         field :queue,       :type => String
 
+        def self.buffering?
+          @buffering
+        end
+
+        def buffering?
+          self.class.buffering?
+        end
+
+        def self.start_buffering!
+          @buffering = true
+        end
+
+        def self.stop_buffering!
+          @buffering = false
+        end
+
+        def self.clear_buffer!
+          @buffer = nil
+        end
+
+        def self.buffer
+          @buffer ||= {}
+        end
+
+        def buffer
+          self.class.buffer
+        end
+
         def initialize(data = {})
           puts "[init] Delayed::Backend::Sqs"
           @msg = nil
 
           if data.is_a?(AWS::SQS::ReceivedMessage)
             @msg = data
-            data = JSON.load(data.body)
+            data = ::DelayedJobSqs::Document.sqs_safe_json_load(data.body)
           end
 
           data.symbolize_keys!
@@ -85,12 +113,17 @@ module Delayed
           if @attributes[:handler].blank?
             raise "Handler missing!"
           end
-          payload = JSON.dump(@attributes)
+          payload = ::DelayedJobSqs::Document.sqs_safe_json_dump(@attributes)
 
-          # Resend the message before deleting from queue to ensure if resend fails, message stays and job can be retried when visibility timeout is exceeded
-          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
-          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
-          
+          @msg.delete if @msg
+
+          maxed_delay = [900, @delay + 5 + attempts ** 4].min
+
+          if buffering?
+            send_later({ message_body: payload, delay_seconds: maxed_delay })
+          else
+            sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay )
+          end
           true
         end
 
@@ -98,7 +131,27 @@ module Delayed
           save
         end
 
-        # Destroy the job; that is, delete it from the SQS queue and don't save it anywhere.
+        def send_later(message)
+          buffer[@queue_name] = [[]] unless buffer[@queue_name]
+          current_buffer = buffer[@queue_name]
+
+          current_buffer_size = current_buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
+          if current_buffer_size + message[:message_body].bytesize >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
+             current_buffer.last.size >= 10
+            current_buffer << [message]
+          else
+            current_buffer.last << message
+          end
+        end
+
+        def self.persist_buffer!
+          buffer.each do |queue_name, message_batches|
+            message_batches.each do |message_batch|
+              sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
+            end
+          end
+        end
+
         def destroy
           if @msg
             message_id = @msg.id
