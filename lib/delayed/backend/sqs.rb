@@ -17,6 +17,34 @@ module Delayed
         field :last_error,  :type => String
         field :queue,       :type => String
 
+        def self.buffering?
+          @buffering
+        end
+
+        def buffering?
+          self.class.buffering?
+        end
+
+        def self.start_buffering!
+          @buffering = true
+        end
+
+        def self.stop_buffering!
+          @buffering = false
+        end
+
+        def self.clear_buffer!
+          @buffer = nil
+        end
+
+        def self.buffer
+          @buffer ||= [[]]
+        end
+
+        def buffer
+          self.class.buffer
+        end
+
         def initialize(data = {})
           puts "[init] Delayed::Backend::Sqs"
           @msg = nil
@@ -65,12 +93,31 @@ module Delayed
           @msg.delete if @msg
 
           maxed_delay = [900, @delay + 5 + attempts ** 4].min
-          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => maxed_delay )
+
+          if buffering?
+            send_later({ message_body: payload, delay_seconds: maxed_delay })
+          else
+            sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => maxed_delay )
+          end
           true
         end
 
         def save!
           save
+        end
+
+        def send_later(message)
+          current_buffer_size = buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
+          if current_buffer_size + message[:message_body].bytesize >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
+             buffer.last.size >= 10
+            buffer << [message]
+          else
+            buffer.last << message
+          end
+        end
+
+        def self.persist_buffer!
+          buffer.each { |message_batch| sqs.queues.named(Delayed::Worker.default_queue_name).batch_send(message_batch) if message_batch.size > 0 }
         end
 
         def destroy
