@@ -16,6 +16,8 @@ module Delayed
         field :last_error,  :type => String
         field :queue,       :type => String
 
+        MAX_MESSAGES_IN_BATCH = 10
+
         def self.buffering?
           @buffering
         end
@@ -120,9 +122,9 @@ module Delayed
           maxed_delay = [900, @delay + 5 + attempts ** 4].min
 
           if buffering?
-            send_later({ message_body: payload, delay_seconds: maxed_delay })
+            send_later(message_body: payload, delay_seconds: maxed_delay)
           else
-            sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay )
+            sqs.queues.named(queue_name).send_message(payload, delay_seconds: @delay )
           end
           true
         end
@@ -135,9 +137,7 @@ module Delayed
           buffer[@queue_name] = [[]] unless buffer[@queue_name]
           current_buffer = buffer[@queue_name]
 
-          current_buffer_size = current_buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
-          if current_buffer_size + message[:message_body].bytesize >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
-             current_buffer.last.size >= 10
+          if buffer_over_limit?(current_buffer, msg[:message_body])
             current_buffer << [message]
           else
             current_buffer.last << message
@@ -221,6 +221,14 @@ module Delayed
 
         def sqs
           ::Delayed::Worker.sqs
+        end
+
+        def buffer_over_limit?(target_buffer, added_message)
+          target_buffer_size = target_buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
+          total_buffer_size = target_buffer_size + added_message.bytesize
+
+          total_buffer_size >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
+            target_buffer.last.size >= MAX_MESSAGES_IN_BATCH
         end
       end
     end

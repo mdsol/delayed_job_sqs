@@ -11,7 +11,7 @@ module DelayedJobSqs
     def self.sqs_safe_json_dump(obj)
       json = JSON.dump(obj)
       if json.bytesize >= MAX_SQS_MESSAGE_SIZE_IN_BYTES
-        JSON.dump( dj_compressed_document: compress(json) )
+        JSON.dump(dj_compressed_document: compress(json))
       else
         json
       end
