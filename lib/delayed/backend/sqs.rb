@@ -123,7 +123,7 @@ module Delayed
           maxed_delay = [900, @delay + 5 + attempts ** 4].min
 
           if buffering?
-            send_later(message_body: payload, delay_seconds: maxed_delay)
+            add_to_buffer(message_body: payload, delay_seconds: maxed_delay)
           else
             sqs.queues.named(queue_name).send_message(payload, delay_seconds: @delay )
           end
@@ -134,7 +134,7 @@ module Delayed
           save
         end
 
-        def send_later(message)
+        def add_to_buffer(message)
           buffer[@queue_name] = [[]] unless buffer[@queue_name]
           current_buffer = buffer[@queue_name]
 
