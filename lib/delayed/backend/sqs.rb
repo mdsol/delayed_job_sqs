@@ -119,6 +119,7 @@ module Delayed
 
           @msg.delete if @msg
 
+          # Exponential back-off based on attempts, up to 900s, where it holds steady.
           maxed_delay = [900, @delay + 5 + attempts ** 4].min
 
           if buffering?
