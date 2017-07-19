@@ -137,7 +137,7 @@ module Delayed
           buffer[@queue_name] = [[]] unless buffer[@queue_name]
           current_buffer = buffer[@queue_name]
 
-          if buffer_over_limit?(current_buffer, msg[:message_body])
+          if buffer_over_limit?(current_buffer, message[:message_body])
             current_buffer << [message]
           else
             current_buffer.last << message
