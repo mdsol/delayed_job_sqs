@@ -18,28 +18,60 @@ module Delayed
 
         MAX_MESSAGES_IN_BATCH = 10
 
-        def self.buffering?
-          @buffering
+        class << self
+          def buffering?
+            @buffering
+          end
+
+          def start_buffering!
+            @buffering = true
+          end
+
+          def stop_buffering!
+            @buffering = false
+          end
+
+          def clear_buffer!
+            @buffer = nil
+          end
+
+          def buffer
+            @buffer ||= {}
+          end
+
+          def persist_buffer!
+            buffer.each do |queue_name, message_batches|
+              message_batches.each do |message_batch|
+                sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
+              end
+            end
+          end
+
+          def create(attrs = {})
+            new(attrs).tap do |o|
+              o.save
+            end
+          end
+
+          def create!(attrs = {})
+            new(attrs).tap do |o|
+              o.save!
+            end
+          end
+
+          # Count the total number of jobs in all queues.
+          def count
+            num_jobs = 0
+            Delayed::Worker.queues.each_with_index do |queue, index|
+              queue = sqs.queues.named(queue_name(index))
+              num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
+            end
+            num_jobs
+          end
         end
 
         def buffering?
           self.class.buffering?
-        end
-
-        def self.start_buffering!
-          @buffering = true
-        end
-
-        def self.stop_buffering!
-          @buffering = false
-        end
-
-        def self.clear_buffer!
-          @buffer = nil
-        end
-
-        def self.buffer
-          @buffer ||= {}
         end
 
         def buffer
@@ -57,7 +89,7 @@ module Delayed
 
           data.symbolize_keys!
           payload_obj = data.delete(:payload_object) || data.delete(:handler)
-          
+
           # Ensure that run_at is present and is a Time object.
           data[:run_at] = if data[:run_at].nil?
             Time.now.utc
@@ -66,7 +98,7 @@ module Delayed
           else
             data[:run_at]
           end
-          
+
           @queue_name = data[:queue]      || Delayed::Worker.default_queue_name
           @delay      = data[:delay]      || Delayed::Worker.delay
           @timeout    = data[:timeout]    || Delayed::Worker.timeout
@@ -75,18 +107,7 @@ module Delayed
           self.payload_object = payload_obj
         end
 
-        def self.create(attrs = {})
-          new(attrs).tap do |o|
-            o.save
-          end
-        end
 
-        def self.create!(attrs = {})
-          new(attrs).tap do |o|
-            o.save!
-          end
-        end
-        
         def payload_object
           @payload_object ||= YAML.load(self.handler)
         rescue TypeError, LoadError, NameError, ArgumentError => e
@@ -142,14 +163,6 @@ module Delayed
           end
         end
 
-        def self.persist_buffer!
-          buffer.each do |queue_name, message_batches|
-            message_batches.each do |message_batch|
-              sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
-            end
-          end
-        end
-
         def destroy
           if @msg
             message_id = @msg.id
@@ -194,16 +207,6 @@ module Delayed
         def reload(*args)
           reset
           self
-        end
-
-        # Count the total number of jobs in all queues.
-        def self.count
-          num_jobs = 0
-          Delayed::Worker.queues.each_with_index do |queue, index|
-            queue = sqs.queues.named(queue_name(index))
-            num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
-          end
-          num_jobs
         end
                 
         # Must give each job an id.
