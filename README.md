@@ -69,6 +69,30 @@ user = User.new
 user.delay.background_stuff
 ```
 
+### Batch SQS
+You can send multiple messages to SQS in a single request by using:
+```ruby
+Delayed::Job.start_buffering!
+```
+
+Once you want to stop buffering, simply use:
+```ruby
+Delayed::Job.stop_buffering!
+```
+
+Ensure that messages are sent by persisting the messages at the end of your transaction:
+```ruby
+Delayed::Job.persist_buffer!
+```
+This clears the buffer once the messages are sent.
+
+Finally, you may explicitly clear the buffer at any time with:
+```ruby
+Delayed::Job.clear_buffer!
+```
+
+
+
 ## Start worker process
 
     rake jobs:work

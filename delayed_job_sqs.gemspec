@@ -17,11 +17,10 @@ Gem::Specification.new do |s|
   s.files         = `git ls-files`.split($/)
   s.test_files    = s.files.grep(%r{^(test|spec|features)/})
 
-  s.add_dependency('aws-sdk', '>= 1.11.1')
+  s.add_dependency('aws-sdk-v1', '>= 1.11.1')
   s.add_dependency('delayed_job', '>= 3.0.0')
 
   s.add_development_dependency('rspec', '>= 3')
-  s.add_development_dependency('debugger', '1.6.0')
   s.add_development_dependency('simplecov', '0.7.1')
 end
 
