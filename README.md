@@ -91,7 +91,15 @@ Finally, you may explicitly clear the buffer at any time with:
 Delayed::Job.clear_buffer!
 ```
 
-
+Or simply wrap your transaction with `batch_delay_jobs`
+```ruby
+Delayed::Job.batch_delay_jobs do
+  .
+  .
+  .
+end
+# => Sends generated SQS messages in batch, then stops buffering.
+```
 
 ## Start worker process
 

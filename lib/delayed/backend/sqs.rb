@@ -19,6 +19,20 @@ module Delayed
         MAX_MESSAGES_IN_BATCH = 10
 
         class << self
+          # Wrap transactions in this method to automatically send SQS messages generated in the transaction in batches.
+          def batch_delay_jobs
+            nested_block = true if buffering?
+            begin
+              clear_buffer! unless nested_block
+              start_buffering!
+              yield
+              persist_buffer!
+            ensure
+              stop_buffering! unless nested_block
+              clear_buffer!
+            end
+          end
+
           def buffering?
             @buffering
           end
