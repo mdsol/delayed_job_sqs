@@ -4,7 +4,7 @@ module Delayed
       @@version = nil
 
       def self.version
-        @@version ||= "0.1.0"
+        @@version ||= "0.2.1"
       end
     end
   end

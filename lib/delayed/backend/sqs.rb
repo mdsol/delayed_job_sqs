@@ -16,18 +16,94 @@ module Delayed
         field :last_error,  :type => String
         field :queue,       :type => String
 
+        MAX_MESSAGES_IN_BATCH = 10
+
+        class << self
+          # Wrap transactions in this method to automatically send SQS messages generated in the transaction in batches.
+          def batch_delay_jobs
+            nested_block = true if buffering?
+            begin
+              clear_buffer! unless nested_block
+              start_buffering!
+              yield
+              persist_buffer!
+            ensure
+              stop_buffering! unless nested_block
+              clear_buffer!
+            end
+          end
+
+          def buffering?
+            @buffering
+          end
+
+          def start_buffering!
+            @buffering = true
+          end
+
+          def stop_buffering!
+            @buffering = false
+          end
+
+          def clear_buffer!
+            @buffer = nil
+          end
+
+          def buffer
+            @buffer ||= {}
+          end
+
+          def persist_buffer!
+            buffer.each do |queue_name, message_batches|
+              message_batches.each do |message_batch|
+                sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
+              end
+            end
+          end
+
+          def create(attrs = {})
+            new(attrs).tap do |o|
+              o.save
+            end
+          end
+
+          def create!(attrs = {})
+            new(attrs).tap do |o|
+              o.save!
+            end
+          end
+
+          # Count the total number of jobs in all queues.
+          def count
+            num_jobs = 0
+            Delayed::Worker.queues.each_with_index do |queue, index|
+              queue = sqs.queues.named(queue_name(index))
+              num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
+            end
+            num_jobs
+          end
+        end
+
+        def buffering?
+          self.class.buffering?
+        end
+
+        def buffer
+          self.class.buffer
+        end
+
         def initialize(data = {})
           puts "[init] Delayed::Backend::Sqs"
           @msg = nil
 
           if data.is_a?(AWS::SQS::ReceivedMessage)
             @msg = data
-            data = JSON.load(data.body)
+            data = ::DelayedJobSqs::Document.sqs_safe_json_load(data.body)
           end
 
           data.symbolize_keys!
           payload_obj = data.delete(:payload_object) || data.delete(:handler)
-          
+
           # Ensure that run_at is present and is a Time object.
           data[:run_at] = if data[:run_at].nil?
             Time.now.utc
@@ -36,7 +112,7 @@ module Delayed
           else
             data[:run_at]
           end
-          
+
           @queue_name = data[:queue]      || Delayed::Worker.default_queue_name
           @delay      = data[:delay]      || Delayed::Worker.delay
           @timeout    = data[:timeout]    || Delayed::Worker.timeout
@@ -45,18 +121,7 @@ module Delayed
           self.payload_object = payload_obj
         end
 
-        def self.create(attrs = {})
-          new(attrs).tap do |o|
-            o.save
-          end
-        end
 
-        def self.create!(attrs = {})
-          new(attrs).tap do |o|
-            o.save!
-          end
-        end
-        
         def payload_object
           @payload_object ||= YAML.load(self.handler)
         rescue TypeError, LoadError, NameError, ArgumentError => e
@@ -85,12 +150,15 @@ module Delayed
           if @attributes[:handler].blank?
             raise "Handler missing!"
           end
-          payload = JSON.dump(@attributes)
+          payload = ::DelayedJobSqs::Document.sqs_safe_json_dump(@attributes)
 
-          # Resend the message before deleting from queue to ensure if resend fails, message stays and job can be retried when visibility timeout is exceeded
-          sqs.queues.named(queue_name).send_message(payload, :delay_seconds  => @delay)
-          @msg.delete if @msg # TODO:  potential problem here in that there may be multiple copies of this message on the q since SQS guarantees to write at least once
-          
+          @msg.delete if @msg
+
+          if buffering?
+            add_to_buffer(message_body: payload, delay_seconds: @delay)
+          else
+            sqs.queues.named(queue_name).send_message(payload, delay_seconds: @delay )
+          end
           true
         end
 
@@ -98,7 +166,17 @@ module Delayed
           save
         end
 
-        # Destroy the job; that is, delete it from the SQS queue and don't save it anywhere.
+        def add_to_buffer(message)
+          buffer[@queue_name] = [[]] unless buffer[@queue_name]
+          current_buffer = buffer[@queue_name]
+
+          if buffer_over_limit?(current_buffer, message[:message_body])
+            current_buffer << [message]
+          else
+            current_buffer.last << message
+          end
+        end
+
         def destroy
           if @msg
             message_id = @msg.id
@@ -144,16 +222,6 @@ module Delayed
           reset
           self
         end
-
-        # Count the total number of jobs in all queues.
-        def self.count
-          num_jobs = 0
-          Delayed::Worker.queues.each_with_index do |queue, index|
-            queue = sqs.queues.named(queue_name(index))
-            num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
-          end
-          num_jobs
-        end
                 
         # Must give each job an id.
         def id
@@ -168,6 +236,14 @@ module Delayed
 
         def sqs
           ::Delayed::Worker.sqs
+        end
+
+        def buffer_over_limit?(target_buffer, added_message)
+          target_buffer_size = target_buffer.last.reduce(0) { |m, msg| m + msg[:message_body].bytesize }
+          total_buffer_size = target_buffer_size + added_message.bytesize
+
+          total_buffer_size >= ::DelayedJobSqs::Document::MAX_SQS_MESSAGE_SIZE_IN_BYTES ||
+            target_buffer.last.size >= MAX_MESSAGES_IN_BATCH
         end
       end
     end

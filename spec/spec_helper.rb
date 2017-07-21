@@ -6,7 +6,6 @@ $LOAD_PATH.uniq!
 
 require 'bundler'
 require 'simplecov'
-require 'debugger'
 
 SimpleCov.start do
   add_group 'lib', 'lib'
@@ -19,7 +18,7 @@ require 'delayed_job'
 Bundler.setup
 
 require 'fake_sqs/test_integration'
-require 'aws-sdk'
+require 'aws-sdk-v1'
 
 Dir["#{SPEC_DIR}/support/*.rb"].each { |f| require f }
 
