@@ -16,7 +16,7 @@ module Delayed
                       end
         self.delay = config.delay_seconds || 0
         self.timeout = config.visibility_timeout || 5.minutes
-        self.expires_in = config.message_retention_period || 4.days
+        self.expires_in = config.message_retention_period || 4.days.to_i
       end
 
       def config
