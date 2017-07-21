@@ -98,5 +98,106 @@ describe Delayed::Backend::Sqs::Job, :sqs do
       expect { sqs_job.save }.to raise_error(AWS::SQS::Errors::InvalidAction)
     end
   end
-  
+
+  describe '.batch_delay_jobs' do
+    it 'adds jobs into the buffer' do
+      Delayed::Job.batch_delay_jobs do
+        described_class.enqueue(payload_object: SimpleJob.new)
+        expect(Delayed::Job.buffer[DEFAULT_QUEUE_NAME].first.size).to eq(1)
+        described_class.enqueue(payload_object: SimpleJob.new)
+        expect(Delayed::Job.buffer[DEFAULT_QUEUE_NAME].first.size).to eq(2)
+      end
+    end
+
+    context 'when batch_delay_jobs blocks are nested' do
+      it 'adds all jobs to the same buffer' do
+        Delayed::Job.batch_delay_jobs do
+          described_class.enqueue(payload_object: SimpleJob.new)
+
+          Delayed::Job.batch_delay_jobs do
+            described_class.enqueue(payload_object: SimpleJob.new)
+            expect(Delayed::Job.buffer[DEFAULT_QUEUE_NAME].first.size).to eq(2)
+          end
+        end
+      end
+
+      it 'adds jobs after nested blocks to a newly emptied queue' do
+        Delayed::Job.batch_delay_jobs do
+          described_class.enqueue(payload_object: SimpleJob.new)
+
+          Delayed::Job.batch_delay_jobs do
+            described_class.enqueue(payload_object: SimpleJob.new)
+          end
+          expect(Delayed::Job.buffer).to eq({})
+
+          described_class.enqueue(payload_object: SimpleJob.new)
+          expect(Delayed::Job.buffer[DEFAULT_QUEUE_NAME].first.size).to eq(1)
+        end
+        expect(Delayed::Job.buffer).to eq({})
+      end
+    end
+
+    it 'does not contain anything in buffer outside the transaction' do
+      expect { Delayed::Job.batch_delay_jobs { described_class.enqueue(payload_object: SimpleJob.new) } }.
+          to_not change { Delayed::Job.buffer }.from({})
+    end
+
+    context 'when a transaction has not completed' do
+      it 'has not enqueued any messages' do
+        Delayed::Job.batch_delay_jobs do
+          described_class.enqueue(payload_object: SimpleJob.new)
+          described_class.enqueue(payload_object: SimpleJob.new)
+          expect(AWS::SQS.new.queues.first.visible_messages).to eq(0)
+        end
+      end
+    end
+
+    context 'when a transaction does not complete' do
+      before do
+        begin
+          Delayed::Job.batch_delay_jobs do
+            described_class.enqueue(payload_object: SimpleJob.new)
+            described_class.enqueue(payload_object: SimpleJob.new)
+            fail
+          end
+        rescue
+          nil
+        end
+      end
+      it 'does not send any messages' do
+        expect(AWS::SQS.new.queues.first.visible_messages).to eq(0)
+      end
+
+      it 'empties the buffer' do
+        expect(Delayed::Job.buffer).to eq({})
+      end
+
+      it 'stops buffering' do
+        expect(Delayed::Job.buffering?).to be_falsey
+      end
+    end
+
+    context 'when a transaction completes' do
+      before do
+        Delayed::Job.batch_delay_jobs do
+          described_class.enqueue(payload_object: SimpleJob.new)
+          described_class.enqueue(payload_object: SimpleJob.new)
+        end
+      end
+      it 'sends all messages' do
+        expect(AWS::SQS.new.queues.first.visible_messages).to eq(2)
+      end
+
+      it 'clears the buffer' do
+        expect(Delayed::Job.buffer).to eq({})
+      end
+
+      it 'does not implicitly buffer later transactions' do
+        expect(Delayed::Job.buffering?).to be_falsey
+        described_class.enqueue(payload_object: SimpleJob.new)
+        expect(Delayed::Job.buffer).to eq({})
+        expect(AWS::SQS.new.queues.first.visible_messages).to eq(3)
+      end
+    end
+  end
 end
