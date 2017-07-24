@@ -158,7 +158,7 @@ describe Delayed::Backend::Sqs::Job, :sqs do
           Delayed::Job.batch_delay_jobs do
             described_class.enqueue(payload_object: SimpleJob.new)
             described_class.enqueue(payload_object: SimpleJob.new)
-            fail
+            raise
           end
         rescue
           nil
@@ -173,7 +173,7 @@ describe Delayed::Backend::Sqs::Job, :sqs do
       end
 
       it 'stops buffering' do
-        expect(Delayed::Job.buffering?).to be_falsey
+        expect(Delayed::Job.buffering?).to eq(false)
       end
     end
 

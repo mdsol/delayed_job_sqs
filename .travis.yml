@@ -3,10 +3,10 @@ sudo: false
 rvm:
   - 2.2.7
   - 2.3.4
-  - 2.4.0
+  - 2.4.1
 env:
   global:
     - RAILS_ENV=test
 
 script:
-  - bundle exec rspec spec/
+  - bundle exec rspec
