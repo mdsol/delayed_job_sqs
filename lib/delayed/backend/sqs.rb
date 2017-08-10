@@ -17,6 +17,7 @@ module Delayed
         field :queue,       :type => String
 
         MAX_MESSAGES_IN_BATCH = 10
+        COUNT_FIELDS = %w(Messages MessagesNotVisible MessagesDelayed).map { |f| 'ApproximateNumberOf' + f }
 
         class << self
           # Wrap transactions in this method to automatically send SQS messages generated in the transaction in batches.
@@ -55,8 +56,10 @@ module Delayed
 
           def persist_buffer!
             buffer.each do |queue_name, message_batches|
+              sqs_queue = sqs.get_queue_by_name(queue_name: queue_name)
               message_batches.each do |message_batch|
-                sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
+                messages = message_batch.map.with_index { |msg_str, i| { id: i.to_s, message_body: msg_str } }
+                sqs_queue.send_messages(entries: messages) if messages.size > 0
               end
             end
           end
@@ -75,12 +78,10 @@ module Delayed
 
           # Count the total number of jobs in all queues.
           def count
-            num_jobs = 0
-            Delayed::Worker.queues.each_with_index do |queue, index|
-              queue = sqs.queues.named(queue_name(index))
-              num_jobs += queue.approximate_number_of_messages + queue.approximate_number_of_messages_delayed + queue.approximate_number_of_messages_not_visible
+            Delayed::Worker.queues.reduce(0) do |num_jobs, queue_name|
+              sqs_queue = sqs.get_queue_by_name(queue_name: queue_name)
+              num_jobs + sqs_queue.attributes.values_at(*COUNT_FIELDS).map(&:to_i).reduce(:+)
             end
-            num_jobs
           end
         end
 
@@ -96,7 +97,7 @@ module Delayed
           puts "[init] Delayed::Backend::Sqs"
           @msg = nil
 
-          if data.is_a?(AWS::SQS::ReceivedMessage)
+          if data.is_a?(Aws::SQS::Message)
             @msg = data
             data = ::DelayedJobSqs::Document.sqs_safe_json_load(data.body)
           end
@@ -157,7 +158,7 @@ module Delayed
           if buffering?
             add_to_buffer(message_body: payload, delay_seconds: @delay)
           else
-            sqs.queues.named(queue_name).send_message(payload, delay_seconds: @delay )
+            sqs.get_queue_by_name(queue_name).send_message(message_body: payload, delay_seconds: @delay)
           end
           true
         end
@@ -217,17 +218,17 @@ module Delayed
 
         # This method is supposed to reload the payload object.
         # NOTE:  I can't find evidence that this is actually called in anything but tests by delayed job.
-        # We are copying the implementation given in delayed_job/spec/delayed/backend/test.rb 
+        # We are copying the implementation given in delayed_job/spec/delayed/backend/test.rb
         def reload(*args)
           reset
           self
         end
-                
+
         # Must give each job an id.
         def id
           rand(10e6)
         end
-                
+
         private
 
         def queue_name

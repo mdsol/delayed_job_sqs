@@ -28,21 +28,23 @@ module Delayed
         # Find an available job message on the queue for the given worker to start working on.
         # Only jobs which are not failed and which should not be run in the future are given to the worker.
         def find_available(worker_name, limit = 5, max_run_time = Worker.max_run_time)
-          Delayed::Worker.queues.each_with_index do |queue, index|
-            message = sqs.queues.named(queue_name(index)).receive_message
-
+          Delayed::Worker.queues.each do |queue_name|
+            sqs_queue = sqs.get_queue_by_name(queue_name: queue_name)
+            message = sqs_queue.receive_messages.first
             return [Delayed::Backend::Sqs::Job.new(message)] if message
           end
           []
         end
-        
+
         def delete_all
           deleted = 0
 
-          Delayed::Worker.queues.each_with_index do |queue, index|
+          Delayed::Worker.queues.each do |queue_name|
+            sqs_queue = sqs.get_queue_by_name(queue_name: queue_name)
+
             loop do
-              msgs = sqs.queues.named(queue_name(index)).receive_message({ :limit => 10})
-              break if msgs.blank?
+              msgs = sqs_queue.receive_messages(max_number_of_messages: 10)
+              break if msgs.empty?
               msgs.each do |msg|
                 msg.delete
                 deleted += 1
@@ -62,10 +64,6 @@ module Delayed
 
         def sqs
           ::Delayed::Worker.sqs
-        end
-
-        def queue_name(index)
-          Delayed::Worker.queues[index]
         end
       end
     end

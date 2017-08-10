@@ -26,22 +26,19 @@ module Delayed
   end
 
   module Backend
-    module Sqs      
+    module Sqs
       if Object.const_defined?(:Rails) and Rails.const_defined?(:Railtie)
         class Railtie < Rails::Railtie
 
           # configure our gem after Rails completely boots so that we have
           # access to any config/initializers that were run
           config.after_initialize do
-            AWS::Rails.setup
-
-            Delayed::Worker.sqs = AWS::SQS.new
+            Delayed::Worker.sqs = Aws::SQS::Resource.new
             Delayed::Worker.configure {}
           end
         end
-      elsif defined?(AWS.config) && AWS.config.access_key_id && AWS.config.secret_access_key
-        # Use config in AWS.config if it is defined well enough for our sqs-y purposes.
-        Delayed::Worker.sqs = AWS::SQS.new
+      elsif defined?(Aws.config)
+        Delayed::Worker.sqs = Aws::SQS::Resource.new
         Delayed::Worker.configure {}
       else
         path = Pathname.new(Delayed::Worker.config.aws_config)
@@ -53,14 +50,12 @@ module Delayed
             raise "AWS Yaml configuration file is missing a section"
           end
 
-          AWS.config(cfg.keys[0])
+          Aws.config.update(cfg.keys[0])
         end
 
-        Delayed::Worker.sqs = AWS::SQS.new
+        Delayed::Worker.sqs = Aws::SQS::Resource.new
         Delayed::Worker.configure {}
-      end      
+      end
     end
   end
 end
-
-
