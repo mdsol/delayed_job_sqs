@@ -32,6 +32,7 @@ Aws.config.update(
     port: 4568,
     queue_name: DEFAULT_QUEUE_NAME,
   },
+  credentials: Aws::Credentials.new('fake', 'fake'),
 )
 
 require File.join(LIB_DIR, 'delayed_job_sqs')
