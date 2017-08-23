@@ -1,3 +1,5 @@
+require 'byebug'
+
 module Delayed
   module Backend
     module Sqs
@@ -120,25 +122,28 @@ module Delayed
           @expires_in = data[:expires_in] || Delayed::Worker.expires_in
           @attributes = data
           self.payload_object = payload_obj
+          # debugger
         end
 
 
         def payload_object
-          @payload_object ||= YAML.load(self.handler)
-        rescue TypeError, LoadError, NameError, ArgumentError => e
+          # debugger
+          @payload_object ||= YAML.load_dj(self.handler)
+        rescue => e
           raise Delayed::DeserializationError,
             "Job failed to load: #{e.message}. Handler: #{handler.inspect}"
         end
 
         def payload_object=(object)
+          # debugger
           if object.is_a? String
-            @payload_object = YAML.load(object)
+            @payload_object = YAML.load_dj(object)
             self.handler = object
           else
             @payload_object = object
             self.handler = object.to_yaml
           end
-        rescue TypeError, LoadError, NameError, ArgumentError => e
+        rescue => e
           puts "Failed to serialize #{object} because #{e.message} (#{e.class})."
           # If we have trouble serializing the object, simply assume it is already serialized and store it as is
           # in hopes that it can be deserialized when the time comes.  This is what the dj lint calls for.
@@ -147,6 +152,7 @@ module Delayed
 
         def save
           puts "[SAVE] #{@attributes.inspect}"
+          # debugger
 
           if @attributes[:handler].blank?
             raise "Handler missing!"
@@ -158,7 +164,7 @@ module Delayed
           if buffering?
             add_to_buffer(message_body: payload, delay_seconds: @delay)
           else
-            sqs.get_queue_by_name(queue_name).send_message(message_body: payload, delay_seconds: @delay)
+            sqs.get_queue_by_name(queue_name: queue_name).send_message(message_body: payload, delay_seconds: @delay)
           end
           true
         end
@@ -180,7 +186,7 @@ module Delayed
 
         def destroy
           if @msg
-            message_id = @msg.id
+            message_id = @msg.message_id
             @msg.delete # TODO:  need more fault tolerance around this!
             puts "Job destroyed! #{message_id} \nWith attributes: #{@attributes.inspect}"
           else

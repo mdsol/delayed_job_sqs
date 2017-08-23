@@ -32,7 +32,11 @@ describe Delayed::Backend::Sqs::Job, :sqs do
 
   let(:simple_job) { DelayedJobSqs::SimpleJob.new }
 
-  let(:queue_url) { "http://0.0.0.0:#{AWS.config['sqs_port']}" }
+  let(:queue_url) do
+    port = Aws.config.dig(:sqs, :endpoint).split(':').last
+    "http://localhost:#{port}"
+  end
+
   let(:sqs_queue) { Aws::SQS::Queue.new(queue_url) }
   let(:sqs_message) { Aws::SQS::Message.new(sqs_queue.url, 1, '', body: { job: 'New job' }.to_json) }
 

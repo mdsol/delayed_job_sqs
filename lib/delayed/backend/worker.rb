@@ -1,3 +1,4 @@
+require 'byebug'
 require_relative 'sqs_config'
 
 module Delayed
@@ -8,6 +9,8 @@ module Delayed
 
       def configure
         yield(config)
+
+        # debugger
 
         self.default_queue_name = if !config.default_queue_name.nil? && config.default_queue_name.length != 0
                         config.default_queue_name

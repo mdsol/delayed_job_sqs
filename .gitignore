@@ -9,3 +9,4 @@
 .rvmrc
 .bundle/config
 Gemfile.lock
+.byebug_history
