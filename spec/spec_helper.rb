@@ -28,10 +28,13 @@ DEFAULT_QUEUE_NAME = 'default' # A queue name to be used by default by both dela
 # and what credentials to use to talk to it.  Here, we use localhost b/c we are using fake_sqs as our SQS endpoint.
 Aws.config.update(
   sqs: {
-    endpoint: 'localhost',
-    port: 4568,
-    queue_name: DEFAULT_QUEUE_NAME,
+    endpoint: 'http://localhost:4568',
   },
+  # sqs: {
+  #   endpoint: 'localhost',
+  #   # port: 4568,
+  #   # queue_name: DEFAULT_QUEUE_NAME,
+  # },
   credentials: Aws::Credentials.new('fake', 'fake'),
 )
 
@@ -46,7 +49,7 @@ RSpec.configure do |config|
 
   # Before running the test suite, initialize and start fake_sqs.
   config.before(:suite) do
-    $fake_sqs = FakeSQS::TestIntegration.new(database: ':memory:')
+    $fake_sqs = FakeSQS::TestIntegration.new(sqs_endpoint: 'localhost', sqs_port: 4568, database: ':memory:')
     $fake_sqs.start
     $sqs = Aws::SQS::Resource.new
   end
