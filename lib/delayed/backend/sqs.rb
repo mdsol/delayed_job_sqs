@@ -9,7 +9,7 @@ module Delayed
         field :priority,    :type => Integer, :default => 0
         field :attempts,    :type => Integer, :default => 0
         field :handler,     :type => String
-        field :run_at,      :type => Time # TODO:  implement run_at
+        field :run_at,      :type => Time # TODO: implement run_at
         field :locked_at,   :type => Time
         field :locked_by,   :type => String
         field :failed_at,   :type => Time
@@ -20,14 +20,15 @@ module Delayed
 
         class << self
           # Wrap transactions in this method to automatically send SQS messages generated in the transaction in batches.
-          def batch_delay_jobs
+          def batch_delay_jobs(force: false)
             nested_block = true if buffering?
             begin
               clear_buffer! unless nested_block
               start_buffering!
               yield
-              persist_buffer!
+              messages_persisted = persist_buffer!
             ensure
+              persist_buffer! if (force && !messages_persisted)
               stop_buffering! unless nested_block
               clear_buffer!
             end
@@ -59,6 +60,7 @@ module Delayed
                 sqs.queues.named(queue_name).batch_send(message_batch) if message_batch.size > 0
               end
             end
+            true
           end
 
           def create(attrs = {})
