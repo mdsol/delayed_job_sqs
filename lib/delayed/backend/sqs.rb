@@ -6,15 +6,15 @@ module Delayed
         include Delayed::Backend::Base
         extend  Delayed::Backend::Sqs::Actions
 
-        field :priority,    :type => Integer, :default => 0
-        field :attempts,    :type => Integer, :default => 0
-        field :handler,     :type => String
-        field :run_at,      :type => Time # TODO:  implement run_at
-        field :locked_at,   :type => Time
-        field :locked_by,   :type => String
-        field :failed_at,   :type => Time
-        field :last_error,  :type => String
-        field :queue,       :type => String
+        field :priority,    type: Integer, :default => 0
+        field :attempts,    type: Integer, :default => 0
+        field :handler,     type: String
+        field :run_at,      type: Time # TODO:  implement run_at
+        field :locked_at,   type: Time
+        field :locked_by,   type: String
+        field :failed_at,   type: Time
+        field :last_error,  type: String
+        field :queue,       type: String
 
         MAX_MESSAGES_IN_BATCH = 10
 
@@ -222,12 +222,12 @@ module Delayed
           reset
           self
         end
-                
+
         # Must give each job an id.
         def id
           rand(10e6)
         end
-                
+
         private
 
         def queue_name
