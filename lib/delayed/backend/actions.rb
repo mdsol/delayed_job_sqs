@@ -35,7 +35,7 @@ module Delayed
           end
           []
         end
-        
+
         def delete_all
           deleted = 0
 
