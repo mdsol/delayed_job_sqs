@@ -3,6 +3,7 @@
 .DS_Store
 *.esproj/
 .idea/
+.byebug_history
 /coverage
 /rdoc
 /pkg

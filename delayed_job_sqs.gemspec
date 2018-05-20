@@ -22,5 +22,11 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency('rspec', '>= 3')
   s.add_development_dependency('simplecov', '0.7.1')
+
+  if RUBY_VERSION[0] >= '2'
+    s.add_development_dependency('byebug', '~> 9.0')
+  else
+    s.add_development_dependency( 'debugger', '~> 1.6')
+  end
 end
 
