@@ -27,13 +27,10 @@ DEFAULT_QUEUE_NAME = 'default' # A queue name to be used by default by both dela
 
 # Define AWS config. to be used in tests.  This is for the benefit of telling delayed_job_sqs where the sqs endpoint is
 # and what credentials to use to talk to it.  Here, we use localhost b/c we are using fake_sqs as our SQS endpoint.
-AWS.config(
-  use_ssl:           false,
-  sqs_endpoint:      'localhost',
-  sqs_port:          4568,
-  access_key_id:     'fake',
-  secret_access_key: 'fake',
-  sqs_queue_name:    DEFAULT_QUEUE_NAME,
+credentials = Aws::Credentials.new('fake_access_key_id', 'fake_secret_access_key')
+Aws.config.update(
+  credentials:  credentials,
+  region:       'us-east-1',
 )
 
 require File.join(LIB_DIR, 'delayed_job_sqs')
@@ -49,7 +46,7 @@ RSpec.configure do |config|
   config.before(:suite) do
     $fake_sqs = FakeSQS::TestIntegration.new(database: ':memory:')
     $fake_sqs.start
-    $sqs = AWS::SQS.new
+    $sqs = Aws::SQS::Client.new(region: 'us-east-1')
   end
 
   # Each example tagged with :sqs, we reset fake_sqs and recreate the SQS queue in which we store jobs.
